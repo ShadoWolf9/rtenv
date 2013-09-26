@@ -358,6 +358,41 @@ void serial_readwrite_task()
 	}
 }
 
+
+/*******************************************/
+/****Add shel				****/
+/****void shell (void)			****/
+/*******************************************/
+
+void shell (void)
+{
+	int fdout;
+	int i = 0;
+	char buff[64], c;
+
+	fdout = open("/dev/tty0/out", 0);	
+
+	write(fdout, "****************************************\r\n", 42);
+	write(fdout, "******Welcome to use my shell~~*********\r\n", 42);
+	write(fdout, "******By ShadoWolf, 2013/09~~***********\r\n", 42);
+	write(fdout, "****************************************\r\n", 42);
+	
+	write(fdout, "$", 1);
+	while (c != 13)
+	{
+		read(open("/dev/tty0/in", 0), &c, 1);
+		buff[i] = c;
+		i++;		
+	}
+	buff[i-1]='\r';
+	buff[i]='\n';
+	write(fdout, buff, i+1);	
+}
+
+/*******************************************/
+/****shell end				****/
+/*******************************************/
+
 void first()
 {
 	setpriority(0, 0);
@@ -366,9 +401,8 @@ void first()
 	if (!fork()) setpriority(0, 0), serialout(USART2, USART2_IRQn);
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
-	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task1();
-	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task2();
-	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), serial_readwrite_task();
+	
+	if (!fork()) setpriority(0, 0), shell();
 
 	setpriority(0, PRIORITY_LIMIT);
 
