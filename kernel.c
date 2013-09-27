@@ -527,13 +527,60 @@ void checktoken (const char *buff, int *token)
 /****end checktoken			****/
 /*******************************************/
 
+/*******************************************/
+/****Add echo_cmd			****/
+/****void echo_cmd (const char *buff)	****/
+/*******************************************/
+
+void echo_cmd (const char *buff)
+{
+	char *string;
+	int i = 0, j = 0;
+
+	i = 0;
+	
+	while (buff[i] == ' ' || buff[i] == '\t') 
+		i++;
+	while (buff[i] != ' ' && buff[i] != '\t' && buff[i] != '\0')
+		i++;
+	while (buff[i] == ' ' || buff[i] == '\t') 
+		i++;
+	string = &buff[i];
+
+	puts (string);
+	
+}
+
+/*******************************************/
+/****end echo_cmd			****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add hello_cmd			****/
+/****void hello_cmd (void)		****/
+/*******************************************/
+
+void hello_cmd (void)
+{
+	puts("****************************************");
+	puts("******Welcome to use my shell~~*********");
+	puts("******By ShadoWolf, 2013/09~~***********");
+	puts("****************************************");
+}
+
+/*******************************************/
+/****end hello_cmd			****/
+/*******************************************/
+
 
 /*******************************************/
 /****Add grammar			****/
-/****void grammar (int *token)		****/
+/****void grammar (char *buff,		****/
+/****			int *token)	****/
 /*******************************************/
 
-void grammar (int *token)
+void grammar (const char *buff, int *token)
 {
 	int flag = STATE_START;
 	int i = 0;
@@ -581,17 +628,12 @@ void grammar (int *token)
 			flag = STATE_ERROR;
 			break;
 		case STATE_ECHO:
-			if (token[i] == TOKEN_END) 
-			{
-				puts ("echo");
-				return;
-			}
-			flag = STATE_ERROR;
-			break;
+			echo_cmd (buff);
+			return;
 		case STATE_HELLO:
 			if (token[i] == TOKEN_END) 
 			{
-				puts ("hello");
+				hello_cmd ();
 				return;
 			}
 			flag = STATE_ERROR;
@@ -642,7 +684,7 @@ void shell (void)
 		putchar ('\r');
 		putchar ('\n');
 		*/
-		grammar (token);
+		grammar (buff, token);
 	}
 }
 
