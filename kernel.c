@@ -41,17 +41,12 @@ size_t strlen(const char *s)
 
 void puts(char *s)
 {
-	char r = '\r', n = '\n';
 	while (*s) {
 		while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)
 			/* wait */ ;
 		USART_SendData(USART2, *s);
 		s++;
 	}
-	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
-	USART_SendData(USART2, r);
-	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
-	USART_SendData(USART2, n);
 }
 
 #define STACK_SIZE 512 /* Size of task stacks in words */
@@ -109,6 +104,12 @@ struct task_control_block {
     struct task_control_block **prev;
     struct task_control_block  *next;
 };
+
+
+/*Global variables: tasks*/
+struct task_control_block tasks[TASK_LIMIT];
+size_t task_count = 0;
+
 
 /* 
  * pathserver assumes that all files are FIFOs that were registered
@@ -411,6 +412,7 @@ void putchar(const char c)
 /****end putchar			****/
 /*******************************************/
 
+
 /*******************************************/
 /****Add getchar			****/
 /****int getchar (void) 		****/
@@ -527,6 +529,67 @@ void checktoken (const char *buff, int *token)
 /****end checktoken			****/
 /*******************************************/
 
+
+/*******************************************/
+/****Add itoa				****/
+/****char *itoa (int number, 		****/
+/****		char *string)		****/
+/*******************************************/
+
+char *itoa (int number, char *string)
+{
+	int i = 0, j = 0, k = 10;
+
+	while (number / k > 0)
+		k = k * 10;
+	k = k / 10;
+	do
+	{
+		i = number / k;
+		number = number % k;
+		k = k / 10;
+		string[j] = i + 48;
+		j++;
+	} while (k > 0);
+
+	string[j] = '\0';
+	return string;
+}
+
+/*******************************************/
+/****end itoa				****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add ps_cmd				****/
+/****void ps_cmd (void)			****/
+/*******************************************/
+
+void ps_cmd (void)
+{
+	char statuslist[5][10] = {"ready","w_read","w_write","w_inir","w_time"};
+	char string[32];
+	int i = 0;
+
+	puts ("PID\tSTATUS\t\tPRIORITY\t\r\n");
+	for (i = 0; i < task_count; i++)
+	{
+		puts ( itoa (tasks[i].pid, string) );
+		puts ("\t");
+		puts (statuslist[tasks[i].status]);
+		puts ("\t\t");
+		puts ( itoa (tasks[i].priority, string) );
+		puts ("\t\r\n");
+	}
+	
+}
+
+/*******************************************/
+/****end ps_cmd				****/
+/*******************************************/
+
+
 /*******************************************/
 /****Add echo_cmd			****/
 /****void echo_cmd (const char *buff)	****/
@@ -548,7 +611,7 @@ void echo_cmd (const char *buff)
 	string = &buff[i];
 
 	puts (string);
-	
+	puts ("\r\n");
 }
 
 /*******************************************/
@@ -563,10 +626,10 @@ void echo_cmd (const char *buff)
 
 void hello_cmd (void)
 {
-	puts("****************************************");
-	puts("******Welcome to use my shell~~*********");
-	puts("******By ShadoWolf, 2013/09~~***********");
-	puts("****************************************");
+	puts("****************************************\r\n");
+	puts("******Welcome to use my shell~~*********\r\n");
+	puts("******By ShadoWolf, 2013/09~~***********\r\n");
+	puts("****************************************\r\n");
 }
 
 /*******************************************/
@@ -617,26 +680,27 @@ void grammar (const char *buff, int *token)
 			}
 			break;
 		case STATE_ERROR:
-			puts ("this is not an known command");
+			puts ("this is not an known command\r\n");
 			return;
 		case STATE_PS:
 			if (token[i] == TOKEN_END) 
 			{
-				puts ("ps");
-				return;
-			}
-			flag = STATE_ERROR;
+				ps_cmd ();
+				flag = STATE_END;
+			} else
+				flag = STATE_ERROR;
 			break;
 		case STATE_ECHO:
 			echo_cmd (buff);
-			return;
+			flag = STATE_END;	
+			break;
 		case STATE_HELLO:
 			if (token[i] == TOKEN_END) 
 			{
 				hello_cmd ();
-				return;
-			}
-			flag = STATE_ERROR;
+				flag = STATE_END;
+			} else
+				flag = STATE_ERROR;
 			break;
 		case STATE_END:
 			return;
@@ -663,10 +727,10 @@ void shell (void)
 
 	fdout = open("/dev/tty0/out", 0);	
 
-	puts("****************************************");
-	puts("******Welcome to use my shell~~*********");
-	puts("******By ShadoWolf, 2013/09~~***********");
-	puts("****************************************");
+	puts("****************************************\r\n");
+	puts("******Welcome to use my shell~~*********\r\n");
+	puts("******By ShadoWolf, 2013/09~~***********\r\n");
+	puts("****************************************\r\n");
 	
 	while (1)
 	{
@@ -691,6 +755,7 @@ void shell (void)
 /*******************************************/
 /****end shell				****/
 /*******************************************/
+
 
 /*******************************************end ShadoWolf*******************************************/ 
 
@@ -1004,11 +1069,9 @@ _mknod(struct pipe_ringbuffer *pipe, int dev)
 int main()
 {
 	unsigned int stacks[TASK_LIMIT][STACK_SIZE];
-	struct task_control_block tasks[TASK_LIMIT];
 	struct pipe_ringbuffer pipes[PIPE_LIMIT];
 	struct task_control_block *ready_list[PRIORITY_LIMIT + 1];  /* [0 ... 39] */
 	struct task_control_block *wait_list = NULL;
-	size_t task_count = 0;
 	size_t current_task = 0;
 	size_t i;
 	struct task_control_block *task;
