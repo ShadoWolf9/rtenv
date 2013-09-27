@@ -727,27 +727,13 @@ void shell (void)
 
 	fdout = open("/dev/tty0/out", 0);	
 
-	puts("****************************************\r\n");
-	puts("******Welcome to use my shell~~*********\r\n");
-	puts("******By ShadoWolf, 2013/09~~***********\r\n");
-	puts("****************************************\r\n");
+	hello_cmd ();
 	
 	while (1)
 	{
 		putchar ('$');
 		gets (buff);
 		checktoken (buff, token);
-		/*putchar (token[0]+48);
-		putchar ('\r');
-		putchar ('\n');
-		for (k = 1; k <= token[0]; k++)
-		{
-			putchar (token[k]+48);
-			putchar (' ');
-		}
-		putchar ('\r');
-		putchar ('\n');
-		*/
 		grammar (buff, token);
 	}
 }
