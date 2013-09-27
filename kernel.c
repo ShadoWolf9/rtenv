@@ -41,12 +41,17 @@ size_t strlen(const char *s)
 
 void puts(char *s)
 {
+	char r = '\r', n = '\n';
 	while (*s) {
 		while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)
 			/* wait */ ;
 		USART_SendData(USART2, *s);
 		s++;
 	}
+	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+	USART_SendData(USART2, r);
+	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+	USART_SendData(USART2, n);
 }
 
 #define STACK_SIZE 512 /* Size of task stacks in words */
@@ -358,40 +363,294 @@ void serial_readwrite_task()
 	}
 }
 
+/*******************************************Edit by ShadoWolf*******************************************/
+
 
 /*******************************************/
-/****Add shel				****/
+/****Some MACRO	and const		****/
+/*******************************************/
+
+#define INPUT_BUFFSIZE 256
+#define TOKEN_MAX 128 /*please keep TOKEN_MAX == INPUT_BUFFSIZE / 2*/
+#define TOKEN_COUNT 3
+
+#define STATE_START	0
+#define STATE_ERROR 	1
+#define STATE_OTHER 	2
+#define STATE_END 	3
+#define STATE_PS 	4
+#define STATE_ECHO 	5
+#define STATE_HELLO 	6
+
+#define TOKEN_OTHER	2
+#define TOKEN_END	3
+#define TOKEN_PS	4
+#define TOKEN_ECHO	5
+#define TOKEN_HELLO	6
+
+const char tokenlist[TOKEN_COUNT][INPUT_BUFFSIZE] = {"ps","echo","hello"}; 
+
+/*******************************************/
+/****end MACRO and const		****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add putchar			****/
+/****void putchar (const char c)	****/
+/*******************************************/
+
+void putchar(const char c)
+{
+	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+	USART_SendData(USART2, c);
+	
+}
+
+/*******************************************/
+/****end putchar			****/
+/*******************************************/
+
+/*******************************************/
+/****Add getchar			****/
+/****int getchar (void) 		****/
+/*******************************************/
+
+int getchar(void)
+{
+	int fdin;
+	char c;
+	
+	fdin = open ("/dev/tty0/in", 0);
+	if (fdin == -1) return -1;
+
+	read (fdin, &c, 1);
+	return c;
+}
+
+/*******************************************/
+/****end getchar			****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add gets				****/
+/****char *gets (char *buff)		****/
+/*******************************************/
+
+char *gets (char *buff)
+{
+	int i = 0;
+	char c = 0;
+
+	while (c != 13 && i < INPUT_BUFFSIZE)
+	{
+		c = getchar ();
+		if (c < 0) return NULL;
+		if (c == 127) 
+		{
+			i--;
+			if (i < 0) i = 0;
+			putchar ('\b');
+			putchar (' ');
+			putchar ('\b');
+			continue;
+		}
+		putchar (c);
+		buff[i] = c;
+		i++;
+	}
+	i--;
+	buff[i] = '\0';
+	putchar ('\r');
+	putchar ('\n');
+
+	return buff;
+}
+
+/*******************************************/
+/****end gets				****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add checktoken			****/
+/****void checktoken (const char *buff, ****/
+/****			int *token)	****/
+/*******************************************/
+
+void checktoken (const char *buff, int *token)
+{
+	int i = 0, j = 0, k = 0;
+	int tokenflag = 0;
+	char string[INPUT_BUFFSIZE];
+	
+	token[0] = 0;
+	while (buff[i] != '\0')
+	{
+		while (buff[i] == ' ' || buff[i] == '\t') 
+			i++;
+
+		j = 0;
+		while (buff[i] != ' ' && buff[i] != '\t' && buff[i] != '\0')
+		{
+			string[j] = buff[i];
+			j++;
+			i++;
+		}
+		if (j == 0) break;
+
+		string[j] = '\0';
+		tokenflag = 0;
+		for (k = 0; k < TOKEN_COUNT; k++)
+		{
+			if (strcmp (string, tokenlist[k]) == 0)
+			{
+				token[0]++;
+				token[token[0]] = k + 4;
+				tokenflag = 1;
+				break;
+			}
+		}
+		if (!tokenflag) 
+		{
+			token[0]++;
+			token[token[0]] = TOKEN_OTHER;
+		}
+	}
+
+	token[0]++;
+	token[token[0]] = TOKEN_END;
+}
+
+/*******************************************/
+/****end checktoken			****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add grammar			****/
+/****void grammar (int *token)		****/
+/*******************************************/
+
+void grammar (int *token)
+{
+	int flag = STATE_START;
+	int i = 0;
+
+	for (i = 1; i <= token[0]; i++)
+	{
+		switch(flag)
+		{
+		case STATE_START:
+			if (token[i] == TOKEN_PS) 
+			{
+				flag = STATE_PS;
+				break;
+			}
+			if (token[i] == TOKEN_ECHO)
+			{
+				flag = STATE_ECHO;
+				break;
+			}
+			if (token[i] == TOKEN_HELLO)
+			{
+				flag = STATE_HELLO;
+				break;
+			}
+			if (token[i] == TOKEN_OTHER)
+			{
+				flag = STATE_ERROR;
+				break;
+			}
+			if (token[i] == TOKEN_END)
+			{
+				flag = STATE_END;
+				break;
+			}
+			break;
+		case STATE_ERROR:
+			puts ("this is not an known command");
+			return;
+		case STATE_PS:
+			if (token[i] == TOKEN_END) 
+			{
+				puts ("ps");
+				return;
+			}
+			flag = STATE_ERROR;
+			break;
+		case STATE_ECHO:
+			if (token[i] == TOKEN_END) 
+			{
+				puts ("echo");
+				return;
+			}
+			flag = STATE_ERROR;
+			break;
+		case STATE_HELLO:
+			if (token[i] == TOKEN_END) 
+			{
+				puts ("hello");
+				return;
+			}
+			flag = STATE_ERROR;
+			break;
+		case STATE_END:
+			return;
+		}	 
+	}
+}
+
+/*******************************************/
+/****end grammar			****/
+/*******************************************/
+
+
+/*******************************************/
+/****Add shell				****/
 /****void shell (void)			****/
 /*******************************************/
 
 void shell (void)
 {
 	int fdout;
-	int i = 0;
-	char buff[64], c;
+	int i = 0, k = 1;
+	char buff[INPUT_BUFFSIZE], c;
+	int token[TOKEN_MAX];
 
 	fdout = open("/dev/tty0/out", 0);	
 
-	write(fdout, "****************************************\r\n", 42);
-	write(fdout, "******Welcome to use my shell~~*********\r\n", 42);
-	write(fdout, "******By ShadoWolf, 2013/09~~***********\r\n", 42);
-	write(fdout, "****************************************\r\n", 42);
+	puts("****************************************");
+	puts("******Welcome to use my shell~~*********");
+	puts("******By ShadoWolf, 2013/09~~***********");
+	puts("****************************************");
 	
-	write(fdout, "$", 1);
-	while (c != 13)
+	while (1)
 	{
-		read(open("/dev/tty0/in", 0), &c, 1);
-		buff[i] = c;
-		i++;		
+		putchar ('$');
+		gets (buff);
+		checktoken (buff, token);
+		/*putchar (token[0]+48);
+		putchar ('\r');
+		putchar ('\n');
+		for (k = 1; k <= token[0]; k++)
+		{
+			putchar (token[k]+48);
+			putchar (' ');
+		}
+		putchar ('\r');
+		putchar ('\n');
+		*/
+		grammar (token);
 	}
-	buff[i-1]='\r';
-	buff[i]='\n';
-	write(fdout, buff, i+1);	
 }
 
 /*******************************************/
-/****shell end				****/
+/****end shell				****/
 /*******************************************/
+
+/*******************************************end ShadoWolf*******************************************/ 
 
 void first()
 {
