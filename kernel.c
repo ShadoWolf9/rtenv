@@ -39,6 +39,7 @@ size_t strlen(const char *s)
 	);
 }
 
+/*different with the puts in stdio, this puts won't print a '\n' or '\r' in the end of line*/
 void puts(char *s)
 {
 	while (*s) {
@@ -364,17 +365,16 @@ void serial_readwrite_task()
 	}
 }
 
-/*******************************************Edit by ShadoWolf*******************************************/
-
 
 /*******************************************/
-/****Some MACRO	and const		****/
+/****MACRO and const************************/
 /*******************************************/
 
 #define INPUT_BUFFSIZE 256
-#define TOKEN_MAX 128 /*please keep TOKEN_MAX == INPUT_BUFFSIZE / 2*/
+#define TOKEN_MAX 128	/*please keep TOKEN_MAX == INPUT_BUFFSIZE / 2*/
 #define TOKEN_COUNT 3
 
+/*FSM in parsing*/
 #define STATE_START	0
 #define STATE_ERROR 	1
 #define STATE_OTHER 	2
@@ -383,6 +383,7 @@ void serial_readwrite_task()
 #define STATE_ECHO 	5
 #define STATE_HELLO 	6
 
+/*tokens*/
 #define TOKEN_OTHER	2
 #define TOKEN_END	3
 #define TOKEN_PS	4
@@ -392,14 +393,9 @@ void serial_readwrite_task()
 const char tokenlist[TOKEN_COUNT][INPUT_BUFFSIZE] = {"ps","echo","hello"}; 
 
 /*******************************************/
-/****end MACRO and const		****/
+/****end MACRO and const********************/
 /*******************************************/
 
-
-/*******************************************/
-/****Add putchar			****/
-/****void putchar (const char c)	****/
-/*******************************************/
 
 void putchar(const char c)
 {
@@ -408,15 +404,6 @@ void putchar(const char c)
 	
 }
 
-/*******************************************/
-/****end putchar			****/
-/*******************************************/
-
-
-/*******************************************/
-/****Add getchar			****/
-/****int getchar (void) 		****/
-/*******************************************/
 
 int getchar(void)
 {
@@ -430,15 +417,6 @@ int getchar(void)
 	return c;
 }
 
-/*******************************************/
-/****end getchar			****/
-/*******************************************/
-
-
-/*******************************************/
-/****Add gets				****/
-/****char *gets (char *buff)		****/
-/*******************************************/
 
 char *gets (char *buff)
 {
@@ -449,7 +427,7 @@ char *gets (char *buff)
 	{
 		c = getchar ();
 		if (c < 0) return NULL;
-		if (c == 127) 
+		if (c == 127)	/*type in 'backspace'*/
 		{
 			i--;
 			if (i < 0) i = 0;
@@ -458,7 +436,7 @@ char *gets (char *buff)
 			putchar ('\b');
 			continue;
 		}
-		putchar (c);
+		putchar (c); /*echo user input*/
 		buff[i] = c;
 		i++;
 	}
@@ -470,29 +448,26 @@ char *gets (char *buff)
 	return buff;
 }
 
-/*******************************************/
-/****end gets				****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add checktoken			****/
-/****void checktoken (const char *buff, ****/
-/****			int *token)	****/
-/*******************************************/
-
+/*make the user input tokenization
+ *char *buff is to store the user input
+ *int *token is to store the result
+ *particularly, token[0] is the amount of tokens in the input
+ */
 void checktoken (const char *buff, int *token)
 {
 	int i = 0, j = 0, k = 0;
-	int tokenflag = 0;
+	int tokenfoundflag = 0;
 	char string[INPUT_BUFFSIZE];
 	
 	token[0] = 0;
 	while (buff[i] != '\0')
 	{
+		/*remove useless 'space' and 'tab'*/	
 		while (buff[i] == ' ' || buff[i] == '\t') 
 			i++;
 
+		/*get the usefull input*/
 		j = 0;
 		while (buff[i] != ' ' && buff[i] != '\t' && buff[i] != '\0')
 		{
@@ -500,21 +475,22 @@ void checktoken (const char *buff, int *token)
 			j++;
 			i++;
 		}
-		if (j == 0) break;
+		if (j == 0) break; 
 
+		/*find token in the tokenlist*/
 		string[j] = '\0';
-		tokenflag = 0;
+		tokenfoundflag = 0;
 		for (k = 0; k < TOKEN_COUNT; k++)
 		{
 			if (strcmp (string, tokenlist[k]) == 0)
 			{
 				token[0]++;
 				token[token[0]] = k + 4;
-				tokenflag = 1;
+				tokenfoundflag = 1;
 				break;
 			}
 		}
-		if (!tokenflag) 
+		if (!tokenfoundflag) 
 		{
 			token[0]++;
 			token[token[0]] = TOKEN_OTHER;
@@ -522,20 +498,13 @@ void checktoken (const char *buff, int *token)
 	}
 
 	token[0]++;
-	token[token[0]] = TOKEN_END;
+	token[token[0]] = TOKEN_END;	/*the last token must be TOKEN_END*/
 }
 
-/*******************************************/
-/****end checktoken			****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add itoa				****/
-/****char *itoa (int number, 		****/
-/****		char *string)		****/
-/*******************************************/
-
+/*itoa won't check the size of char *string
+ *please ensure the string is enough to store the integer
+ */
 char *itoa (int number, char *string)
 {
 	int i = 0, j = 0, k = 10;
@@ -556,16 +525,10 @@ char *itoa (int number, char *string)
 	return string;
 }
 
-/*******************************************/
-/****end itoa				****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add ps_cmd				****/
-/****void ps_cmd (void)			****/
-/*******************************************/
-
+/*execute the command ps
+ *print process information including pid, status and priority
+ */
 void ps_cmd (void)
 {
 	char statuslist[5][10] = {"ready","w_read","w_write","w_inir","w_time"};
@@ -582,19 +545,14 @@ void ps_cmd (void)
 		puts ( itoa (tasks[i].priority, string) );
 		puts ("\t\r\n");
 	}
-	
 }
 
-/*******************************************/
-/****end ps_cmd				****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add echo_cmd			****/
-/****void echo_cmd (const char *buff)	****/
-/*******************************************/
-
+/*execute the command echo
+ *echo will print the following string until an 'enter'
+ *'space' or 'tab' is supposed to separate the echo and following string
+ *if nothing follow the echo, it will print a blank line
+ */
 void echo_cmd (const char *buff)
 {
 	char *string;
@@ -614,16 +572,8 @@ void echo_cmd (const char *buff)
 	puts ("\r\n");
 }
 
-/*******************************************/
-/****end echo_cmd			****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add hello_cmd			****/
-/****void hello_cmd (void)		****/
-/*******************************************/
-
+/*execute the command hello*/
 void hello_cmd (void)
 {
 	puts("****************************************\r\n");
@@ -632,17 +582,10 @@ void hello_cmd (void)
 	puts("****************************************\r\n");
 }
 
-/*******************************************/
-/****end hello_cmd			****/
-/*******************************************/
 
-
-/*******************************************/
-/****Add grammar			****/
-/****void grammar (char *buff,		****/
-/****			int *token)	****/
-/*******************************************/
-
+/*parsing base on int *token
+ *char *buff is to store the user input
+ */
 void grammar (const char *buff, int *token)
 {
 	int flag = STATE_START;
@@ -650,6 +593,7 @@ void grammar (const char *buff, int *token)
 
 	for (i = 1; i <= token[0]; i++)
 	{
+		/*FSM*/
 		switch(flag)
 		{
 		case STATE_START:
@@ -680,7 +624,7 @@ void grammar (const char *buff, int *token)
 			}
 			break;
 		case STATE_ERROR:
-			puts ("this is not an known command\r\n");
+			puts ("this command not found\r\n");
 			return;
 		case STATE_PS:
 			if (token[i] == TOKEN_END) 
@@ -708,15 +652,6 @@ void grammar (const char *buff, int *token)
 	}
 }
 
-/*******************************************/
-/****end grammar			****/
-/*******************************************/
-
-
-/*******************************************/
-/****Add shell				****/
-/****void shell (void)			****/
-/*******************************************/
 
 void shell (void)
 {
@@ -738,12 +673,6 @@ void shell (void)
 	}
 }
 
-/*******************************************/
-/****end shell				****/
-/*******************************************/
-
-
-/*******************************************end ShadoWolf*******************************************/ 
 
 void first()
 {
@@ -754,7 +683,7 @@ void first()
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
 	
-	if (!fork()) setpriority(0, 0), shell();
+	if (!fork()) setpriority(0, 0), shell();	/*start shell*/
 
 	setpriority(0, PRIORITY_LIMIT);
 
